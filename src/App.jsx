@@ -5,6 +5,9 @@ import MarketplaceListing from "./components/marketplace/MarketplaceListing.jsx"
 import ProductDetail from "./components/product/ProductDetail.jsx";
 import AutopayMandate from "./components/product/AutopayMandate.jsx";
 import Confirmation from "./components/product/Confirmation.jsx";
+import HomeTab from "./components/tabs/HomeTab.jsx";
+import PledgeTab from "./components/tabs/PledgeTab.jsx";
+import ProfileTab from "./components/tabs/ProfileTab.jsx";
 import BottomNav from "./components/common/BottomNav.jsx";
 import Toast from "./components/common/Toast.jsx";
 import { T } from "./theme/tokens.js";
@@ -12,7 +15,8 @@ import { T } from "./theme/tokens.js";
 // Top-level navigation state machine:
 // listing -> detail -> mandate -> confirmation
 export default function App() {
-  const [shopTab, setShopTab] = useState("marketplace");
+  const [footerTab, setFooterTab] = useState("shop"); // home | shop | pledge | profile
+  const [shopTab, setShopTab] = useState("marketplace"); // brands | nearby | marketplace
   const [screen, setScreen] = useState("listing"); // listing | detail | mandate | confirmation
   const [activeProductId, setActiveProductId] = useState(null);
   const [orderDraft, setOrderDraft] = useState(null);
@@ -55,6 +59,11 @@ export default function App() {
     setFinalOrder(null);
   };
 
+  const handleFooterTabChange = (tabId) => {
+    setFooterTab(tabId);
+    setScreen("listing");
+  };
+
   return (
     <div className="min-h-screen flex justify-center" style={{ background: "#E9E7F2" }}>
       <Toast toast={toast} />
@@ -62,15 +71,34 @@ export default function App() {
         <div className="flex-1">
           {screen === "listing" && (
             <>
-              <ShopTabs tab={shopTab} setTab={setShopTab} />
-              {shopTab === "brands" && <BlankTab title="Top Brands" />}
-              {shopTab === "nearby" && <BlankTab title="Nearby Stores" />}
-              {shopTab === "marketplace" && (
-                <MarketplaceListing
-                  onOpenProduct={openProduct}
-                  wishlistedIds={wishlistedIds}
-                  onToggleWishlist={toggleWishlist}
+              {footerTab === "home" && (
+                <HomeTab
+                  onNavigateToShop={() => setFooterTab("shop")}
+                  onNavigateToPledge={() => setFooterTab("pledge")}
                 />
+              )}
+
+              {footerTab === "shop" && (
+                <>
+                  <ShopTabs tab={shopTab} setTab={setShopTab} />
+                  {shopTab === "brands" && <BlankTab title="Top Brands" />}
+                  {shopTab === "nearby" && <BlankTab title="Nearby Stores" />}
+                  {shopTab === "marketplace" && (
+                    <MarketplaceListing
+                      onOpenProduct={openProduct}
+                      wishlistedIds={wishlistedIds}
+                      onToggleWishlist={toggleWishlist}
+                    />
+                  )}
+                </>
+              )}
+
+              {footerTab === "pledge" && (
+                <PledgeTab onNavigateToShop={() => setFooterTab("shop")} />
+              )}
+
+              {footerTab === "profile" && (
+                <ProfileTab wishlistedCount={wishlistedIds.length} />
               )}
             </>
           )}
@@ -103,7 +131,9 @@ export default function App() {
           )}
         </div>
 
-        {screen === "listing" && <BottomNav />}
+        {screen === "listing" && (
+          <BottomNav activeTab={footerTab} onChangeTab={handleFooterTabChange} />
+        )}
       </div>
     </div>
   );

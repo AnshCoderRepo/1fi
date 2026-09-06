@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import PromoBanner from "./PromoBanner.jsx";
 import CreditLimitBanner from "./CreditLimitBanner.jsx";
 import SearchBar from "./SearchBar.jsx";
@@ -6,19 +6,25 @@ import BrandStrip from "./BrandStrip.jsx";
 import CategoryChips from "./CategoryChips.jsx";
 import SortDropdown from "./SortDropdown.jsx";
 import ProductCard from "./ProductCard.jsx";
+import Pagination from "../common/Pagination.jsx";
 import SkeletonCard from "../common/SkeletonCard.jsx";
 import ErrorState from "../common/ErrorState.jsx";
 import EmptyState from "../common/EmptyState.jsx";
 import { fetchProducts, armNextRequestToFail } from "../../services/api.js";
+
+const PAGE_SIZE = 6; // 6 products per page (3 rows of 2 on mobile)
 
 export default function MarketplaceListing({ onOpenProduct, wishlistedIds = [], onToggleWishlist }) {
   const [category, setCategory] = useState("all");
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("featured");
+  const [currentPage, setCurrentPage] = useState(1);
   const [status, setStatus] = useState("loading"); // loading | error | ready
   const [products, setProducts] = useState([]);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const gridTopRef = useRef(null);
 
   const load = useCallback(async (cat) => {
     setStatus("loading");
@@ -35,6 +41,11 @@ export default function MarketplaceListing({ onOpenProduct, wishlistedIds = [], 
   useEffect(() => {
     load(category);
   }, [category, load]);
+
+  // Reset to page 1 whenever category, brand, search, or sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [category, selectedBrand, searchQuery, sortBy]);
 
   // Derived filtered and sorted products
   const displayedProducts = useMemo(() => {
@@ -68,6 +79,21 @@ export default function MarketplaceListing({ onOpenProduct, wishlistedIds = [], 
     return result;
   }, [products, selectedBrand, searchQuery, sortBy]);
 
+  const totalPages = Math.ceil(displayedProducts.length / PAGE_SIZE);
+
+  // Current page slice
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return displayedProducts.slice(start, start + PAGE_SIZE);
+  }, [displayedProducts, currentPage]);
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    if (gridTopRef.current) {
+      gridTopRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   return (
     <div className="pb-8">
       <CreditLimitBanner limit={150000} available={150000} />
@@ -85,7 +111,9 @@ export default function MarketplaceListing({ onOpenProduct, wishlistedIds = [], 
         <CategoryChips active={category} onSelect={setCategory} />
       </div>
 
-      <SortDropdown value={sortBy} onChange={setSortBy} />
+      <div ref={gridTopRef}>
+        <SortDropdown value={sortBy} onChange={setSortBy} />
+      </div>
 
       <div className="px-4 pt-2">
         {status === "loading" && (
@@ -104,17 +132,28 @@ export default function MarketplaceListing({ onOpenProduct, wishlistedIds = [], 
           />
         )}
         {status === "ready" && displayedProducts.length > 0 && (
-          <div className="grid grid-cols-2 gap-3">
-            {displayedProducts.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                onOpen={onOpenProduct}
-                isWishlisted={wishlistedIds.includes(p.id)}
-                onToggleWishlist={onToggleWishlist}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              {paginatedProducts.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  onOpen={onOpenProduct}
+                  isWishlisted={wishlistedIds.includes(p.id)}
+                  onToggleWishlist={onToggleWishlist}
+                />
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={displayedProducts.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={handlePageChange}
+            />
+          </>
         )}
       </div>
 
